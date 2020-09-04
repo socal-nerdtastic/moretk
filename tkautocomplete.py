@@ -6,7 +6,6 @@
 # TODO: popup width should match entry width
 
 import tkinter as tk
-from collections import deque
 
 class SelectLabel(tk.Frame):
     SELECTED_COLOR = 'light blue'
@@ -82,26 +81,26 @@ def startswith_ignorecase(whole_phrase, search_phrase):
     if whole_phrase.casefold().startswith(search_phrase.casefold()):
         return 0, len(search_phrase)
 
+
 class OptionBox(tk.Frame):
     """the popup widget"""
     def __init__(self, master, options=[], command=None, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.sublabels = {}
-        self.first = None
+        self.items = [] # a list of SelectLabel objects
         self.command = command
         self.remake(options)
         self.selected = None
 
     def move_down(self):
-        if self.selected is None and self.first is not None:
-            self.first.highlight()
+        if self.selected is None and self.items:
+            self.items[0].highlight()
         elif self.selected is not None:
             self.selected.next.highlight()
 
     def move_up(self):
-        if self.selected is None and self.first is not None:
-            self.first.previous.highlight()
+        if self.selected is None and self.items:
+            self.items[0].previous.highlight()
         elif self.selected is not None:
             self.selected.previous.highlight()
 
@@ -111,33 +110,27 @@ class OptionBox(tk.Frame):
         self.selected = None
 
     def remake(self, options=[]):
-        sublabels = {}
+        current = {lbl.text:lbl for lbl in self.items}
+        self.items = []
         for text, match in options:
-            if text in self.sublabels:
-                lbl = self.sublabels.pop(text)
+            if text in current:
+                lbl = current.pop(text)
                 lbl.pack_forget()
             else:
                 lbl = SelectLabel(self, command=self.command, text=text)
             lbl.pack(expand=True, fill=tk.X)
             lbl.select(match)
-            sublabels[text] = lbl
-
-        # set up LL
-        labels = list(sublabels.values())
-        if labels:
-            self.first = labels[0]
-            for a, b in zip(labels, labels[1:] + [labels[0]]):
-                a.next = b
-            for a, b in zip(labels, [labels[-1]] + labels[:-1]):
-                a.previous = b
-        else:
-            self.first = None
+            self.items.append(lbl)
 
         # delete all remaining labels
-        for child in self.sublabels.values():
+        for child in current.values():
             child.destroy()
 
-        self.sublabels = sublabels
+        # set up linked list
+        if self.items:
+            for a, b, c in zip(self.items, self.items[1:] + [self.items[0]], [self.items[-1]] + self.items[:-1]):
+                a.next = b
+                a.previous = c
 
 
 class AutoComplete(tk.Entry):
@@ -225,7 +218,7 @@ class AutoComplete(tk.Entry):
         root_y = self.winfo_rooty() + y
         self.popup.wm_geometry("+%d+%d" % (root_x, root_y))
 
-def main():
+def demo():
     # test / demo
     data = ['Abiu', 'Açaí', 'Ackee', 'Apple', 'Apricot', 'Avocado', 'Banana', 'Bilberry', 'Blackberry', 'Blackcurrant', 'Black sapote', 'Blueberry', 'Boysenberry', 'Breadfruit', "Buddha's hand", 'Cactus pear', 'Cempedak', 'Crab apple', 'Currant', 'Cherry', 'Cherimoya', 'Chico fruit', 'Cloudberry', 'Coco De Mer', 'Coconut', 'Cranberry', 'Damson', 'Date', 'Dragonfruit', 'Durian', 'Egg Fruit', 'Elderberry', 'Feijoa', 'Fig', 'Goji berry', 'Gooseberry', 'Grape', 'Grewia asiatica', 'Raisin', 'Grapefruit', 'Guava', 'Hala Fruit', 'Honeyberry', 'Huckleberry', 'Jabuticaba', 'Jackfruit', 'Jambul', 'Japanese plum', 'Jostaberry', 'Jujube', 'Juniper berry', 'Kiwano', 'Kiwifruit', 'Kumquat', 'Lemon', 'Lime', 'Loganberry', 'Loquat', 'Longan', 'Lulo', 'Lychee', 'Mamey Apple', 'Mamey Sapote', 'Mango', 'Mangosteen', 'Marionberry', 'Melon', 'Cantaloupe', 'Galia melon', 'Honeydew', 'Watermelon', 'Miracle fruit', 'Monstera deliciosa', 'Mulberry', 'Nance', 'Nectarine', 'Orange', 'Blood orange', 'Clementine', 'Mandarine', 'Tangerine', 'Papaya', 'Passionfruit', 'Peach', 'Pear', 'Persimmon', 'Plantain', 'Plum', 'Prune', 'Pineapple', 'Pineberry', 'Plumcot', 'Pluot', 'Pomegranate', 'Pomelo', 'Purple mangosteen', 'Quince', 'Raspberry', 'Salmonberry', 'Rambutan', 'Redcurrant', 'Salal berry', 'Salak', 'Satsuma', 'Soursop', 'Star apple', 'Star fruit', 'Strawberry', 'Surinam cherry', 'Tamarillo', 'Tamarind', 'Tangelo', 'Tayberry', 'Tomato', 'Ugli fruit', 'White currant', 'White sapote', 'Yuzu', 'Bell pepper', 'Chile pepper', 'Corn kernel', 'Cucumber', 'Eggplant', 'Jalapeño', 'Olive', 'Pea', 'Pumpkin', 'Squash', 'Tomato', 'Zucchini']
 
@@ -237,4 +230,5 @@ def main():
 
     root.mainloop()
 
-main()
+if __name__ == "__main__":
+    demo()
