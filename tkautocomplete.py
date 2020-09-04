@@ -229,6 +229,7 @@ def main():
     # test / demo
     with open('fruit.txt') as f:
         data = f.read().splitlines()
+    print(data)
     root = tk.Tk()
     tk.Label(root, text='Type a fruit').pack()
     box = AutoComplete(root, options=data)
