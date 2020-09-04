@@ -89,7 +89,6 @@ class OptionBox(tk.Frame):
 
         self.items = [] # a list of SelectLabel objects
         self.command = command
-        self.remake(options)
         self.selected = None
 
     def move_down(self):
@@ -132,12 +131,11 @@ class OptionBox(tk.Frame):
                 a.next = b
                 a.previous = c
 
-
 class AutoComplete(tk.Entry):
     def __init__(self, master, options=None, hitlimit=50, func=startswith_ignorecase, **kwargs):
-        self.var = kwargs.pop('textvariable', tk.StringVar(master))
-        super().__init__(master, textvariable=self.var, **kwargs)
-        self.var.trace('w', self._on_change)
+        super().__init__(master, **kwargs)
+        vcmd = self.register(self._on_change), '%P'
+        self.config(validate="key", validatecommand=vcmd)
         self.options = options or []
         self.hitlimit = hitlimit
         self.func = func
@@ -161,18 +159,21 @@ class AutoComplete(tk.Entry):
             self.optionbox.move_up()
 
     def set(self, value):
-        self.var.set(value)
+        self.delete(0, tk.END)
+        self.insert(0, value)
         self._close_popup()
         self.icursor(len(value))
 
-    def _on_change(self, *args):
-        P = self.var.get()
+    def _on_change(self, P, *args):
+        if P:
+            self._update_popup(P)
+        else:
+            self._close_popup()
+        return True
 
+    def _update_popup(self, P):
         if self.optionbox:
             self.optionbox.lowlight()
-
-        if not P:
-            return self._close_popup()
 
         matches = []
         for option in self.options:
@@ -226,6 +227,12 @@ def demo():
     tk.Label(root, text='Type a fruit').pack()
     box = AutoComplete(root, options=data)
     box.focus()
+    box.pack()
+
+    tk.Label(root, text='Type another fruit').pack()
+    var = tk.StringVar()
+    box = AutoComplete(root, options=data, textvariable=var)
+    var.set('test')
     box.pack()
 
     root.mainloop()
