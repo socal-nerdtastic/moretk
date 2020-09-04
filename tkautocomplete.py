@@ -131,6 +131,8 @@ class OptionBox(tk.Frame):
                 a.next = b
                 a.previous = c
 
+        self.master.update_idletasks()  # Needed on MacOS -- see #34275.
+
 class AutoComplete(tk.Entry):
     def __init__(self, master, options=None, hitlimit=50, func=startswith_ignorecase, **kwargs):
         super().__init__(master, **kwargs)
@@ -139,7 +141,6 @@ class AutoComplete(tk.Entry):
         self.options = options or []
         self.hitlimit = hitlimit
         self.func = func
-        self.popup = None
         self.optionbox = None
 
         self.bind('<Down>', self.move_down)
@@ -186,38 +187,35 @@ class AutoComplete(tk.Entry):
 
         self._open_popup()
         self.optionbox.remake(matches)
-        self.popup.update_idletasks()  # Needed on MacOS -- see #34275.
 
     def _close_popup(self):
-        if self.popup:
-            self.popup.destroy()
-            self.popup = None
+        if self.optionbox:
+            self.optionbox.master.destroy()
             self.optionbox = None
 
     def _open_popup(self):
-        if self.popup:
+        if self.optionbox:
             return # already open
 
-        self.popup = tk.Toplevel(self, width=200)
-        self.popup.wm_overrideredirect(1)
+        popup = tk.Toplevel(self, width=200)
+        popup.wm_overrideredirect(1)
         try:
             # This command is only needed and available on Tk >= 8.4.0 for OSX.
             # Without it, call tips intrude on the typing process by grabbing the focus.
-            self.popup.tk.call("::tk::unsupported::MacWindowStyle",
-                "style", self.popup._w, "help", "noActivates")
+            popup.tk.call("::tk::unsupported::MacWindowStyle",
+                "style", popup._w, "help", "noActivates")
         except tk.TclError:
             pass
 
-        self.position_window()
-        self.optionbox = OptionBox(self.popup, command=self.set)
-        self.optionbox.pack(fill=tk.BOTH, expand=True)
-        self.popup.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
-
-    def position_window(self):
+        # position_window
         x, y = 0, self.winfo_height() + 1
         root_x = self.winfo_rootx() + x
         root_y = self.winfo_rooty() + y
-        self.popup.wm_geometry("+%d+%d" % (root_x, root_y))
+        popup.wm_geometry("+%d+%d" % (root_x, root_y))
+
+        self.optionbox = OptionBox(popup, command=self.set)
+        self.optionbox.pack(fill=tk.BOTH, expand=True)
+        popup.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
 def demo():
     # test / demo
