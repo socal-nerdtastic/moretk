@@ -146,6 +146,7 @@ class AutoComplete(tk.Entry):
         self.bind('<Down>', self.move_down)
         self.bind('<Up>', self.move_up)
         self.bind('<Return>', self.on_return)
+        self.bind('<FocusOut>', self._close_popup)
 
     def on_return(self, event=None):
         if self.optionbox and self.optionbox.selected:
@@ -188,7 +189,7 @@ class AutoComplete(tk.Entry):
         self._open_popup()
         self.optionbox.remake(matches)
 
-    def _close_popup(self):
+    def _close_popup(self, event=None):
         if self.optionbox:
             self.optionbox.master.destroy()
             self.optionbox = None
