@@ -4,6 +4,7 @@
 # TODO: popup width should match entry width
 # TODO: optional scrollbar when exceeding max hits
 # TODO: optional dropdown trigger
+# TODO: move color selection to be kwargs in Autocomplete
 
 import tkinter as tk
 
@@ -73,11 +74,11 @@ class SelectLabel(tk.Frame):
         self.select_core.config(text=self.text[start:end])
         self.rest.config(text=self.text[end:])
 
-def startswith(whole_phrase, search_phrase):
+def startswith_keepcase(whole_phrase, search_phrase):
     if whole_phrase.startswith(search_phrase):
         return 0, len(search_phrase)
 
-def startswith_ignorecase(whole_phrase, search_phrase):
+def startswith(whole_phrase, search_phrase):
     if whole_phrase.casefold().startswith(search_phrase.casefold()):
         return 0, len(search_phrase)
 
@@ -85,6 +86,12 @@ def contains(whole_phrase, search_phrase):
     idx = whole_phrase.casefold().find(search_phrase.casefold())
     if idx >= 0:
         return idx, len(search_phrase) + idx
+
+functions = dict(
+    startswith = startswith,
+    contains = contains,
+    startswith_keepcase = startswith_keepcase,
+    )
 
 class OptionBox(tk.Frame):
     """the popup widget"""
@@ -138,19 +145,30 @@ class OptionBox(tk.Frame):
         self.master.update_idletasks()  # Needed on MacOS -- see #34275.
 
 class Autocomplete(tk.Entry):
-    def __init__(self, master, options=None, hitlimit=50, func=startswith_ignorecase, **kwargs):
+    """
+    A type of tk.Entry that will pop up a list of matching choices as you type
+    options: list of options for the user to choose from
+    hitlimit: max number of hits to show
+    limit_action: One of "nothing", "warn", "scrollbar"
+    func: one of "startswith", "contains" or a function to use to determine if an option matches
+    kwargs: passed on to the underlying Entry
+    """
+    def __init__(self, master, options=None, hitlimit=10, limit_action="warn", func="startswith", **kwargs):
         super().__init__(master, **kwargs)
         vcmd = self.register(self._on_change), '%P'
         self.config(validate="key", validatecommand=vcmd)
         self.options = options or []
         self.hitlimit = hitlimit
-        self.func = func
+        self.func = functions.get(func,func)
         self.optionbox = None
 
         self.bind('<Down>', self.move_down)
         self.bind('<Up>', self.move_up)
         self.bind('<Return>', self.on_return)
         self.bind('<FocusOut>', self._close_popup)
+
+    def demo(self=None):
+        demo()
 
     def on_return(self, event=None):
         if self.optionbox and self.optionbox.selected:
@@ -187,11 +205,13 @@ class Autocomplete(tk.Entry):
             if match:
                 matches.append((option, match))
 
-        if not 1 <= len(matches) < self.hitlimit:
-            return self._close_popup()
-
-        self._open_popup()
-        self.optionbox.remake(matches)
+        if len(matches) == 0:
+            self._close_popup()
+        elif len(matches) > self.hitlimit:
+            self._close_popup()
+        else:
+            self._open_popup()
+            self.optionbox.remake(matches)
 
     def _close_popup(self, event=None):
         if self.optionbox:
@@ -232,18 +252,19 @@ def demo():
     box.focus()
     box.pack()
 
-    tk.Label(root, text='Type another fruit').pack()
+    tk.Label(root, text='Type another fruit\n(case sensitive)').pack()
     var = tk.StringVar()
-    box = Autocomplete(root, options=data, textvariable=var)
+    box = Autocomplete(root, options=data, textvariable=var, func="startswith_keepcase")
     var.set('test')
     box.pack()
 
     tk.Label(root, text='Contains check, try "am"').pack()
-    box = Autocomplete(root, options=data, func=contains)
+    box = Autocomplete(root, options=data, func="contains")
     var.set('test')
     box.pack()
 
     root.mainloop()
 
 if __name__ == "__main__":
-    demo()
+    Autocomplete.demo()
+
