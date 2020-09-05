@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
-# TODO: SelectLabel add flag is_highlighted to avoid duplicate lowlight calls
-# TODO: figure out popup stay-on-top
-# TODO: popup needs to move with window, or disappear
+# TODO: message when exceeding max hits
 # TODO: popup width should match entry width
+# TODO: optional scrollbar when exceeding max hits
+# TODO: optional dropdown trigger
 
 import tkinter as tk
 
@@ -81,6 +81,10 @@ def startswith_ignorecase(whole_phrase, search_phrase):
     if whole_phrase.casefold().startswith(search_phrase.casefold()):
         return 0, len(search_phrase)
 
+def contains(whole_phrase, search_phrase):
+    idx = whole_phrase.casefold().find(search_phrase.casefold())
+    if idx >= 0:
+        return idx, len(search_phrase) + idx
 
 class OptionBox(tk.Frame):
     """the popup widget"""
@@ -231,6 +235,11 @@ def demo():
     tk.Label(root, text='Type another fruit').pack()
     var = tk.StringVar()
     box = AutoComplete(root, options=data, textvariable=var)
+    var.set('test')
+    box.pack()
+
+    tk.Label(root, text='Contains check, try "am"').pack()
+    box = AutoComplete(root, options=data, func=contains)
     var.set('test')
     box.pack()
 
