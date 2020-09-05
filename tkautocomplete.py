@@ -6,6 +6,7 @@
 
 import tkinter as tk
 
+# default color palette
 COLORS = dict(
     selected_color = 'light blue',
     hover_color = 'teal',
@@ -273,29 +274,33 @@ class Autocomplete(tk.Entry):
 
 def demo():
     # test / demo
+    from tkinter import ttk
     data = ['Abiu', 'Açaí', 'Ackee', 'Apple', 'Apricot', 'Avocado', 'Banana', 'Bilberry', 'Blackberry', 'Blackcurrant', 'Black sapote', 'Blueberry', 'Boysenberry', 'Breadfruit', "Buddha's hand", 'Cactus pear', 'Cempedak', 'Crab apple', 'Currant', 'Cherry', 'Cherimoya', 'Chico fruit', 'Cloudberry', 'Coco De Mer', 'Coconut', 'Cranberry', 'Damson', 'Date', 'Dragonfruit', 'Durian', 'Egg Fruit', 'Elderberry', 'Feijoa', 'Fig', 'Goji berry', 'Gooseberry', 'Grape', 'Grewia asiatica', 'Raisin', 'Grapefruit', 'Guava', 'Hala Fruit', 'Honeyberry', 'Huckleberry', 'Jabuticaba', 'Jackfruit', 'Jambul', 'Japanese plum', 'Jostaberry', 'Jujube', 'Juniper berry', 'Kiwano', 'Kiwifruit', 'Kumquat', 'Lemon', 'Lime', 'Loganberry', 'Loquat', 'Longan', 'Lulo', 'Lychee', 'Mamey Apple', 'Mamey Sapote', 'Mango', 'Mangosteen', 'Marionberry', 'Melon', 'Cantaloupe', 'Galia melon', 'Honeydew', 'Watermelon', 'Miracle fruit', 'Monstera deliciosa', 'Mulberry', 'Nance', 'Nectarine', 'Orange', 'Blood orange', 'Clementine', 'Mandarine', 'Tangerine', 'Papaya', 'Passionfruit', 'Peach', 'Pear', 'Persimmon', 'Plantain', 'Plum', 'Prune', 'Pineapple', 'Pineberry', 'Plumcot', 'Pluot', 'Pomegranate', 'Pomelo', 'Purple mangosteen', 'Quince', 'Raspberry', 'Salmonberry', 'Rambutan', 'Redcurrant', 'Salal berry', 'Salak', 'Satsuma', 'Soursop', 'Star apple', 'Star fruit', 'Strawberry', 'Surinam cherry', 'Tamarillo', 'Tamarind', 'Tangelo', 'Tayberry', 'Tomato', 'Ugli fruit', 'White currant', 'White sapote', 'Yuzu', 'Bell pepper', 'Chile pepper', 'Corn kernel', 'Cucumber', 'Eggplant', 'Jalapeño', 'Olive', 'Pea', 'Pumpkin', 'Squash', 'Tomato', 'Zucchini']
 
     root = tk.Tk()
-    tk.Label(root, text='Type a fruit').pack()
-    box = Autocomplete(root, options=data)
+    tk.Label(root, text='Demo of the Autocomplete widget', font=('', 18)).pack()
+    tk.Label(root, text='Demo data is a list of fruits.').pack()
+
+    f = ttk.Labelframe(root, text="Standard")
+    f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
+    tk.Label(f, text='Autocomplete(f, options=data)').grid(sticky=tk.W)
+    box = Autocomplete(f, options=data)
     box.focus()
-    box.pack()
+    box.grid(sticky=tk.W)
 
-    tk.Label(root, text='Type another fruit\n(case sensitive)').pack()
+    f = ttk.Labelframe(root, text="Contains check with variable")
+    f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
+    tk.Label(f, text='var = tk.StringVar()\nAutocomplete(f, options=data, textvariable=var, func="contains")\nvar.set("test")', justify='left').grid(sticky=tk.W)
     var = tk.StringVar()
-    box = Autocomplete(root, options=data, textvariable=var, func="startswith_keepcase")
+    box = Autocomplete(f, options=data, textvariable=var, func="contains")
     var.set('test')
-    box.pack()
+    box.grid(sticky=tk.W)
 
-    tk.Label(root, text='Contains check, try "am"').pack()
-    box = Autocomplete(root, options=data, func="contains")
-    var.set('test')
-    box.pack()
-
-    tk.Label(root, text='Different colors').pack()
-    box = Autocomplete(root, options=data, hover_color='red', selected_color='green')
-    var.set('test')
-    box.pack()
+    f = ttk.Labelframe(root, text="Different colors")
+    f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
+    tk.Label(f, text="Autocomplete(f, options=data, hover_color='red', selected_color='green')", justify='left').grid(sticky=tk.W)
+    box = Autocomplete(f, options=data, hover_color='red', selected_color='green')
+    box.grid(sticky=tk.W)
 
     root.mainloop()
 
