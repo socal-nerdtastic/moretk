@@ -119,7 +119,29 @@ class OptionBox(tk.Frame):
             self.selected.lowlight()
         self.selected = None
 
-    def remake(self, options=[]):
+    def remake(self, options, hitlimit=None, limit_action=None):
+        if hitlimit and len(options) > hitlimit:
+            if limit_action == 'warn':
+                self.make_warn(options)
+            elif limit_action == 'scrollbar':
+                self.make_scroll(options, hitlimit)
+            else:
+                raise NotImplementedError("WTF? this should never happen")
+        else:
+            self.make_normal(options)
+
+    def make_warn(self, options):
+        while self.items:
+            self.items.pop().destroy()
+        lbl = tk.Label(self, text=f"<{len(options)} items match>")
+        lbl.text = None
+        lbl.pack()
+        self.items.append(lbl)
+
+    def make_scroll(self, options):
+        pass
+
+    def make_normal(self, options):
         current = {lbl.text:lbl for lbl in self.items}
         self.items = []
         for text, match in options:
@@ -159,6 +181,9 @@ class Autocomplete(tk.Entry):
         self.config(validate="key", validatecommand=vcmd)
         self.options = options or []
         self.hitlimit = hitlimit
+        self.limit_action = limit_action
+        if self.limit_action == "scrollbar":
+            raise NotImplementedError('Scrollbar not yet implemented')
         self.func = functions.get(func,func)
         self.optionbox = None
 
@@ -207,11 +232,11 @@ class Autocomplete(tk.Entry):
 
         if len(matches) == 0:
             self._close_popup()
-        elif len(matches) > self.hitlimit:
+        elif len(matches) > self.hitlimit and self.limit_action == 'nothing':
             self._close_popup()
         else:
             self._open_popup()
-            self.optionbox.remake(matches)
+            self.optionbox.remake(matches, self.hitlimit, self.limit_action)
 
     def _close_popup(self, event=None):
         if self.optionbox:
