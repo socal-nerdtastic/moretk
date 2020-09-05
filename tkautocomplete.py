@@ -1,28 +1,29 @@
 #!/usr/bin/env python3
 
-# TODO: message when exceeding max hits
 # TODO: popup width should match entry width
 # TODO: optional scrollbar when exceeding max hits
-# TODO: optional dropdown trigger
-# TODO: move color selection to be kwargs in Autocomplete
+# TODO: optional show all options dropdown trigger
 
 import tkinter as tk
 
+COLORS = dict(
+    selected_color = 'light blue',
+    hover_color = 'teal',
+    normal_color = 'white')
+
 class SelectLabel(tk.Frame):
-    SELECTED_COLOR = 'light blue'
-    HOVER_COLOR = 'teal'
-    NORMAL_COLOR = 'white'
     """this widget is a single row item in the result list
     turn color when hovered, allow for selection"""
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, colors=COLORS, **kwargs):
         self.text = kwargs.pop('text','')
         self.command = kwargs.pop('command', None)
+        self.colors = colors
         super().__init__(master, relief=tk.SUNKEN, bd=1, **kwargs)
-        self.prefix = tk.Label(self, bd=0, padx=0, bg=self.NORMAL_COLOR)
+        self.prefix = tk.Label(self, bd=0, padx=0, bg=self.colors['normal_color'])
         self.prefix.pack(side=tk.LEFT)
-        self.select_core = tk.Label(self, bd=0, padx=0, bg=self.SELECTED_COLOR)
+        self.select_core = tk.Label(self, bd=0, padx=0, bg=self.colors['selected_color'])
         self.select_core.pack(side=tk.LEFT)
-        self.rest = tk.Label(self, text=self.text, bd=0, padx=0, anchor=tk.W, bg=self.NORMAL_COLOR)
+        self.rest = tk.Label(self, text=self.text, bd=0, padx=0, anchor=tk.W, bg=self.colors['normal_color'])
         self.rest.pack(fill=tk.X, expand=True)
         self.rest.bind('<Button>', self.choose)
         self.select_core.bind('<Button>', self.choose)
@@ -42,20 +43,20 @@ class SelectLabel(tk.Frame):
             self.master.selected.lowlight()
         self.master.selected = self
 
-        self.prefix.config(bg=self.HOVER_COLOR)
-        self.select_core.config(bg=self.HOVER_COLOR)
-        self.rest.config(bg=self.HOVER_COLOR)
+        self.prefix.config(bg=self.colors['hover_color'])
+        self.select_core.config(bg=self.colors['hover_color'])
+        self.rest.config(bg=self.colors['hover_color'])
 
     def lowlight(self, event=None):
         # will be called twice
         # by the mouse leave AND other.mouse enter ... i'm ok with this (for now)
-        self.prefix.config(bg=self.NORMAL_COLOR)
+        self.prefix.config(bg=self.colors['normal_color'])
         if self.select_core['text']:
-            self.select_core.config(bg=self.SELECTED_COLOR)
+            self.select_core.config(bg=self.colors['selected_color'])
         else:
             # this case should never happen, zero matches should delete the label.
-            self.select_core.config(bg=self.NORMAL_COLOR)
-        self.rest.config(bg=self.NORMAL_COLOR)
+            self.select_core.config(bg=self.colors['normal_color'])
+        self.rest.config(bg=self.colors['normal_color'])
 
     def select(self, start=None, end=None):
         """
@@ -95,9 +96,9 @@ functions = dict(
 
 class OptionBox(tk.Frame):
     """the popup widget"""
-    def __init__(self, master, options=[], command=None, **kwargs):
+    def __init__(self, master, options=[], command=None, colors=COLORS, **kwargs):
         super().__init__(master, **kwargs)
-
+        self.colors = colors
         self.items = [] # a list of SelectLabel objects
         self.command = command
         self.selected = None
@@ -149,7 +150,7 @@ class OptionBox(tk.Frame):
                 lbl = current.pop(text)
                 lbl.pack_forget()
             else:
-                lbl = SelectLabel(self, command=self.command, text=text)
+                lbl = SelectLabel(self, command=self.command, text=text, colors=self.colors)
             lbl.pack(expand=True, fill=tk.X)
             lbl.select(match)
             self.items.append(lbl)
@@ -176,12 +177,15 @@ class Autocomplete(tk.Entry):
     kwargs: passed on to the underlying Entry
     """
     def __init__(self, master, options=None, hitlimit=10, limit_action="warn", func="startswith", **kwargs):
+        self.colors = {key:kwargs.pop(key, COLORS[key]) for key in COLORS}
         super().__init__(master, **kwargs)
         vcmd = self.register(self._on_change), '%P'
         self.config(validate="key", validatecommand=vcmd)
         self.options = options or []
         self.hitlimit = hitlimit
         self.limit_action = limit_action
+        if limit_action not in ("warn", "nothing", "scrollbar"):
+            raise TypeError(f'limit_action must be one of "warn", "nothing", "scrollbar", got {limit_action!r}')
         if self.limit_action == "scrollbar":
             raise NotImplementedError('Scrollbar not yet implemented')
         self.func = functions.get(func,func)
@@ -263,7 +267,7 @@ class Autocomplete(tk.Entry):
         root_y = self.winfo_rooty() + y
         popup.wm_geometry("+%d+%d" % (root_x, root_y))
 
-        self.optionbox = OptionBox(popup, command=self.set)
+        self.optionbox = OptionBox(popup, command=self.set, colors=self.colors)
         self.optionbox.pack(fill=tk.BOTH, expand=True)
         popup.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
@@ -285,6 +289,11 @@ def demo():
 
     tk.Label(root, text='Contains check, try "am"').pack()
     box = Autocomplete(root, options=data, func="contains")
+    var.set('test')
+    box.pack()
+
+    tk.Label(root, text='Different colors').pack()
+    box = Autocomplete(root, options=data, hover_color='red', selected_color='green')
     var.set('test')
     box.pack()
 
