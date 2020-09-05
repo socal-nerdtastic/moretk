@@ -137,7 +137,7 @@ class OptionBox(tk.Frame):
 
         self.master.update_idletasks()  # Needed on MacOS -- see #34275.
 
-class AutoComplete(tk.Entry):
+class Autocomplete(tk.Entry):
     def __init__(self, master, options=None, hitlimit=50, func=startswith_ignorecase, **kwargs):
         super().__init__(master, **kwargs)
         vcmd = self.register(self._on_change), '%P'
@@ -228,18 +228,18 @@ def demo():
 
     root = tk.Tk()
     tk.Label(root, text='Type a fruit').pack()
-    box = AutoComplete(root, options=data)
+    box = Autocomplete(root, options=data)
     box.focus()
     box.pack()
 
     tk.Label(root, text='Type another fruit').pack()
     var = tk.StringVar()
-    box = AutoComplete(root, options=data, textvariable=var)
+    box = Autocomplete(root, options=data, textvariable=var)
     var.set('test')
     box.pack()
 
     tk.Label(root, text='Contains check, try "am"').pack()
-    box = AutoComplete(root, options=data, func=contains)
+    box = Autocomplete(root, options=data, func=contains)
     var.set('test')
     box.pack()
 

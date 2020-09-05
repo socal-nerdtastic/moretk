@@ -1,1 +1,1 @@
-from tkautocomplete import Autocomplete
+from .tkautocomplete import Autocomplete
