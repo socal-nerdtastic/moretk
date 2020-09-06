@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
 # TODO: popup width should match entry width
-# TODO: optional scrollbar when exceeding max hits
+# TODO: add scroll with mousewheel when hovering over canvas
+# TODO: add scroll with arrow key movement
+# TODO: add fake scroll for very long data lists
 # TODO: optional show all options dropdown trigger
 
 import tkinter as tk
@@ -26,9 +28,9 @@ class SelectLabel(tk.Frame):
         self.select_core.pack(side=tk.LEFT)
         self.rest = tk.Label(self, text=self.text, bd=0, padx=0, anchor=tk.W, bg=self.colors['normal_color'])
         self.rest.pack(fill=tk.X, expand=True)
-        self.rest.bind('<Button>', self.choose)
-        self.select_core.bind('<Button>', self.choose)
-        self.prefix.bind('<Button>', self.choose)
+        self.rest.bind('<Button-1>', self.choose)
+        self.select_core.bind('<Button-1>', self.choose)
+        self.prefix.bind('<Button-1>', self.choose)
         self.bind('<Enter>', self.highlight)
         self.bind('<Leave>', self.lowlight)
 
@@ -82,7 +84,7 @@ def startswith_keepcase(whole_phrase, search_phrase):
 
 def startswith(whole_phrase, search_phrase):
     if whole_phrase.casefold().startswith(search_phrase.casefold()):
-        return 0, len(search_phrase)
+        return len(search_phrase)
 
 def contains(whole_phrase, search_phrase):
     idx = whole_phrase.casefold().find(search_phrase.casefold())
@@ -103,6 +105,7 @@ class OptionBox(tk.Frame):
         self.items = [] # a list of SelectLabel objects
         self.command = command
         self.selected = None
+        self.scroll_items = []
 
     def move_down(self):
         if self.selected is None and self.items:
@@ -126,10 +129,12 @@ class OptionBox(tk.Frame):
             if limit_action == 'warn':
                 self.make_warn(options)
             elif limit_action == 'scrollbar':
-                self.make_scroll(options, hitlimit)
+                self.make_scroll(options)
             else:
                 raise NotImplementedError("WTF? this should never happen")
         else:
+            while self.scroll_items:
+                self.scroll_items.pop().destroy()
             self.make_normal(options)
 
     def make_warn(self, options):
@@ -141,9 +146,26 @@ class OptionBox(tk.Frame):
         self.items.append(lbl)
 
     def make_scroll(self, options):
-        pass
+        WIDTH = 130
+        HEIGHT = 200
+        if not self.scroll_items:
+            canvas = tk.Canvas(self, width=WIDTH, height=HEIGHT)
+            canvas.pack(side=tk.LEFT)
+            vsb = tk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+            vsb.pack(side=tk.RIGHT, fill=tk.Y, expand=True)
+            canvas.configure(yscrollcommand = vsb.set)
+            frame = tk.Frame(canvas)
+            frame.columnconfigure(0, minsize=WIDTH)
+            canvas.create_window(0, 0, window=frame, anchor='nw')
 
-    def make_normal(self, options):
+            def on_configure(event):
+                canvas.configure(scrollregion=canvas.bbox('all'))
+
+            canvas.bind('<Configure>', on_configure)
+            self.scroll_items += [frame, canvas, vsb]
+        self.make_normal(options, frame)
+
+    def make_normal(self, options, master=None):
         current = {lbl.text:lbl for lbl in self.items}
         self.items = []
         for text, match in options:
@@ -152,7 +174,7 @@ class OptionBox(tk.Frame):
                 lbl.pack_forget()
             else:
                 lbl = SelectLabel(self, command=self.command, text=text, colors=self.colors)
-            lbl.pack(expand=True, fill=tk.X)
+            lbl.pack(expand=True, fill=tk.X, in_=master or self)
             lbl.select(match)
             self.items.append(lbl)
 
@@ -163,8 +185,7 @@ class OptionBox(tk.Frame):
         # set up linked list
         if self.items:
             for a, b, c in zip(self.items, self.items[1:] + [self.items[0]], [self.items[-1]] + self.items[:-1]):
-                a.next = b
-                a.previous = c
+                a.next, a.previous = b, c
 
         self.master.update_idletasks()  # Needed on MacOS -- see #34275.
 
@@ -187,8 +208,6 @@ class Autocomplete(tk.Entry):
         self.limit_action = limit_action
         if limit_action not in ("warn", "nothing", "scrollbar"):
             raise TypeError(f'limit_action must be one of "warn", "nothing", "scrollbar", got {limit_action!r}')
-        if self.limit_action == "scrollbar":
-            raise NotImplementedError('Scrollbar not yet implemented')
         self.func = functions.get(func,func)
         self.optionbox = None
 
@@ -279,7 +298,7 @@ def demo():
 
     root = tk.Tk()
     tk.Label(root, text='Demo of the Autocomplete widget', font=('', 18)).pack()
-    tk.Label(root, text='Demo data is a list of fruits.').pack()
+    tk.Label(root, text='Demo data is a list of fruits. Type a fruit name!').pack()
 
     f = ttk.Labelframe(root, text="Standard")
     f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
@@ -300,6 +319,12 @@ def demo():
     f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
     tk.Label(f, text="Autocomplete(f, options=data, hover_color='red', selected_color='green')", justify='left').grid(sticky=tk.W)
     box = Autocomplete(f, options=data, hover_color='red', selected_color='green')
+    box.grid(sticky=tk.W)
+
+    f = ttk.Labelframe(root, text="Scrollbar")
+    f.pack(expand=True, fill=tk.X, ipady=2, ipadx=2, pady=2, padx=2)
+    tk.Label(f, text="Autocomplete(f, options=data, func='contains', limit_action='scrollbar')", justify='left').grid(sticky=tk.W)
+    box = Autocomplete(f, options=data, func='contains', limit_action='scrollbar'   )
     box.grid(sticky=tk.W)
 
     root.mainloop()
