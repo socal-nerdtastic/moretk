@@ -17,10 +17,11 @@ COLORS = dict(
 class SelectLabel(tk.Frame):
     """this widget is a single row item in the result list
     turn color when hovered, allow for selection"""
-    def __init__(self, master, colors=COLORS, **kwargs):
+    def __init__(self, master, controller, colors=COLORS, **kwargs):
         self.text = kwargs.pop('text','')
         self.command = kwargs.pop('command', None)
         self.colors = colors
+        self.controller = controller
         super().__init__(master, relief=tk.SUNKEN, bd=1, **kwargs)
         self.prefix = tk.Label(self, bd=0, padx=0, bg=self.colors['normal_color'])
         self.prefix.pack(side=tk.LEFT)
@@ -42,9 +43,9 @@ class SelectLabel(tk.Frame):
             self.command(self.text)
 
     def highlight(self, event=None):
-        if self.master.selected is not None:
-            self.master.selected.lowlight()
-        self.master.selected = self
+        if self.controller.selected is not None:
+            self.controller.selected.lowlight()
+        self.controller.selected = self
 
         self.prefix.config(bg=self.colors['hover_color'])
         self.select_core.config(bg=self.colors['hover_color'])
@@ -105,7 +106,7 @@ class OptionBox(tk.Frame):
         self.items = [] # a list of SelectLabel objects
         self.command = command
         self.selected = None
-        self.scroll_items = []
+        self.disp_frame = self
 
     def move_down(self):
         if self.selected is None and self.items:
@@ -124,48 +125,7 @@ class OptionBox(tk.Frame):
             self.selected.lowlight()
         self.selected = None
 
-    def remake(self, options, hitlimit=None, limit_action=None):
-        if hitlimit and len(options) > hitlimit:
-            if limit_action == 'warn':
-                self.make_warn(options)
-            elif limit_action == 'scrollbar':
-                self.make_scroll(options)
-            else:
-                raise NotImplementedError("WTF? this should never happen")
-        else:
-            while self.scroll_items:
-                self.scroll_items.pop().destroy()
-            self.make_normal(options)
-
-    def make_warn(self, options):
-        while self.items:
-            self.items.pop().destroy()
-        lbl = tk.Label(self, text=f"<{len(options)} items match>")
-        lbl.text = None
-        lbl.pack()
-        self.items.append(lbl)
-
-    def make_scroll(self, options):
-        WIDTH = 130
-        HEIGHT = 200
-        if not self.scroll_items:
-            canvas = tk.Canvas(self, width=WIDTH, height=HEIGHT)
-            canvas.pack(side=tk.LEFT)
-            vsb = tk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
-            vsb.pack(side=tk.RIGHT, fill=tk.Y, expand=True)
-            canvas.configure(yscrollcommand = vsb.set)
-            frame = tk.Frame(canvas)
-            frame.columnconfigure(0, minsize=WIDTH)
-            canvas.create_window(0, 0, window=frame, anchor='nw')
-
-            def on_configure(event):
-                canvas.configure(scrollregion=canvas.bbox('all'))
-
-            canvas.bind('<Configure>', on_configure)
-            self.scroll_items += [frame, canvas, vsb]
-        self.make_normal(options, frame)
-
-    def make_normal(self, options, master=None):
+    def remake(self, options):
         current = {lbl.text:lbl for lbl in self.items}
         self.items = []
         for text, match in options:
@@ -173,8 +133,8 @@ class OptionBox(tk.Frame):
                 lbl = current.pop(text)
                 lbl.pack_forget()
             else:
-                lbl = SelectLabel(self, command=self.command, text=text, colors=self.colors)
-            lbl.pack(expand=True, fill=tk.X, in_=master or self)
+                lbl = SelectLabel(self.disp_frame, controller=self, command=self.command, text=text, colors=self.colors)
+            lbl.pack(expand=True, fill=tk.X)
             lbl.select(match)
             self.items.append(lbl)
 
@@ -188,6 +148,37 @@ class OptionBox(tk.Frame):
                 a.next, a.previous = b, c
 
         self.master.update_idletasks()  # Needed on MacOS -- see #34275.
+
+class OptionBoxScroll(OptionBox):
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+
+        WIDTH = 130
+        HEIGHT = 200
+        canvas = tk.Canvas(self, width=WIDTH, height=HEIGHT)
+        canvas.pack(side=tk.LEFT)
+        vsb = tk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        vsb.pack(side=tk.RIGHT, fill=tk.Y, expand=True)
+        canvas.configure(yscrollcommand = vsb.set)
+        self.disp_frame = tk.Frame(canvas)
+        self.disp_frame.columnconfigure(0, minsize=WIDTH)
+        canvas.create_window(0, 0, window=self.disp_frame, anchor='nw')
+
+        def on_configure(event):
+            canvas.configure(scrollregion=canvas.bbox('all'))
+
+        canvas.bind('<Configure>', on_configure)
+
+class OptionBoxWarn(OptionBox):
+    # subclass OptionBox instead of Frame simply to consume kwargs and populate vars
+    def __init__(self, master=None, **kwargs):
+        super().__init__(master, **kwargs)
+
+        self.lbl = tk.Label(self)
+        self.lbl.pack()
+
+    def remake(self, options):
+        self.lbl.config(text=f"<{len(options)} items match>")
 
 class Autocomplete(tk.Entry):
     """
@@ -238,7 +229,7 @@ class Autocomplete(tk.Entry):
         self.icursor(len(value))
 
     def _on_change(self, P, *args):
-        if P:
+        if P: # something was typed
             self._update_popup(P)
         else:
             self._close_popup()
@@ -256,20 +247,31 @@ class Autocomplete(tk.Entry):
 
         if len(matches) == 0:
             self._close_popup()
-        elif len(matches) > self.hitlimit and self.limit_action == 'nothing':
-            self._close_popup()
+        elif len(matches) > self.hitlimit:
+            if self.limit_action == 'nothing':
+                self._close_popup()
+            elif self.limit_action == 'warn':
+                self._open_popup(OptionBoxWarn)
+            elif self.limit_action == 'scrollbar':
+                self._open_popup(OptionBoxScroll)
+            else:
+                raise TypeError(f"unknown limit action: {self.limit_action!r}")
         else:
-            self._open_popup()
-            self.optionbox.remake(matches, self.hitlimit, self.limit_action)
+            self._open_popup(OptionBox)
+
+        if self.optionbox:
+            self.optionbox.remake(matches)
 
     def _close_popup(self, event=None):
         if self.optionbox:
             self.optionbox.master.destroy()
             self.optionbox = None
 
-    def _open_popup(self):
-        if self.optionbox:
+    def _open_popup(self, popup_type):
+        if self.optionbox and type(self.optionbox) == popup_type:
             return # already open
+        else:
+            self._close_popup()
 
         popup = tk.Toplevel(self, width=200)
         popup.wm_overrideredirect(1)
@@ -287,7 +289,7 @@ class Autocomplete(tk.Entry):
         root_y = self.winfo_rooty() + y
         popup.wm_geometry("+%d+%d" % (root_x, root_y))
 
-        self.optionbox = OptionBox(popup, command=self.set, colors=self.colors)
+        self.optionbox = popup_type(popup, command=self.set, colors=self.colors)
         self.optionbox.pack(fill=tk.BOTH, expand=True)
         popup.lift()  # work around bug in Tk 8.5.18+ (issue #24570)
 
@@ -331,4 +333,3 @@ def demo():
 
 if __name__ == "__main__":
     Autocomplete.demo()
-
