@@ -205,7 +205,7 @@ class Autocomplete(tk.Entry):
         self.bind('<Down>', self.move_down)
         self.bind('<Up>', self.move_up)
         self.bind('<Return>', self.on_return)
-        self.bind('<FocusOut>', self._close_popup)
+        self.bind('<FocusOut>', self._lost_focus)
 
     def demo(self=None):
         demo()
@@ -264,6 +264,13 @@ class Autocomplete(tk.Entry):
 
     def _close_popup(self, event=None):
         if self.optionbox:
+            self.optionbox.master.destroy()
+            self.optionbox = None
+
+    def _lost_focus(self, event=None):
+        if self.optionbox and self.optionbox.selected:
+            self.optionbox.selected.choose()
+        elif self.optionbox:
             self.optionbox.master.destroy()
             self.optionbox = None
 
