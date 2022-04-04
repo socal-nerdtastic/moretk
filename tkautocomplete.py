@@ -189,12 +189,24 @@ class Autocomplete(tk.Entry):
     func: one of "startswith", "contains" or a function to use to determine if an option matches
     kwargs: passed on to the underlying Entry
     """
-    def __init__(self, master, options=None, hitlimit=10, limit_action="warn", func="startswith", **kwargs):
+    def __init__(self, master, options=[], hitlimit=10, limit_action="warn", func="startswith", **kwargs):
         self.colors = {key:kwargs.pop(key, COLORS[key]) for key in COLORS}
         super().__init__(master, **kwargs)
         vcmd = self.register(self._on_change), '%P'
         self.config(validate="key", validatecommand=vcmd)
-        self.options = options or []
+
+        self.options = []
+        self.dict_options = None
+        self.keys_options = None
+
+        if type(options) == dict:
+            self.dict_options = options
+            self.keys_options = [k.lower() for k in options.keys()]
+        elif type(options) == list:
+            self.options = options
+        else:
+            raise TypeError(f"Parameter options passed is invalid. Expected list or dictionary. Got {type(options)}")
+
         self.hitlimit = hitlimit
         self.limit_action = limit_action
         if limit_action not in ("warn", "nothing", "scrollbar"):
@@ -238,6 +250,11 @@ class Autocomplete(tk.Entry):
     def _update_popup(self, P):
         if self.optionbox:
             self.optionbox.lowlight()
+
+        if self.dict_options:
+            p = P.lower()
+            if p in self.keys_options:
+                self.options = self.dict_options[p]
 
         matches = []
         for option in self.options:
